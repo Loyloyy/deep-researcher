@@ -21,25 +21,31 @@ run_research(topic, brief)                ┌───────────�
   report.md  +  DeepResearchArtifact (versioned, citation-validated, persisted)
 ```
 
-## Quickstart (server build — full stack)
+## Quickstart (LOCAL — Ollama, no API keys)
+
+Full step-by-step with checks is in **`CHECKLIST.md`**. Short version:
 
 ```bash
-# 1. configure
-cp .env.example .env          # set LITELLM_MASTER_KEY, OPENAI_API_KEY(=master), OPENROUTER_API_KEY
+# 1. local models
+ollama pull qwen2.5:7b-instruct && ollama pull qwen2.5:3b-instruct
 
-# 2. confirm OpenRouter model slugs in docker/litellm/config.yaml (strategic/smart/fast)
+# 2. configure (defaults work as-is; no keys)
+cp .env.example .env
 
 # 3. services
 cd docker && docker compose up -d         # searxng + litellm   (add --profile obs for langfuse)
 cd ..
 
-# 4. install (server has the GPU for BGE-M3 + reranker)
+# 4. install
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[all]"                   # crawl4ai needs: python -m playwright install chromium
+pip install -e ".[all]" && python -m playwright install chromium
 
 # 5. run
 python -m deep_researcher.cli "What is speculative decoding and when does it help?"
 ```
+
+Models live in `docker/litellm/config.yaml` (the single switch-point). To use frontier later,
+repoint a role at `openrouter/...` or `anthropic/...` there + add the key in `.env` — no code change.
 
 ```python
 from deep_researcher import run_research

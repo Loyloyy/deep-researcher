@@ -24,6 +24,9 @@ services:
       - ./litellm/config.yaml:/app/config.yaml:ro
     env_file:
       - ../.env
+    extra_hosts:
+      # lets the proxy reach Ollama / vLLM running on the host (Linux/WSL/Mac)
+      - "host.docker.internal:host-gateway"
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     restart: unless-stopped
 

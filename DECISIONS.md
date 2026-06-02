@@ -126,6 +126,22 @@ Running log of non-trivial choices and rationale. Newest phases appended over ti
   + citation_structural (fraction of findings with resolvable evidence). Add a `judge` model to the LiteLLM
   config before running.
 
+## Local-first deployment (2026-06-01)
+
+- **Default deployment is now fully LOCAL via Ollama** — no frontier APIs, no keys. Everything in the
+  stack was already local (BGE-M3 embeddings in-process, bge-reranker in-process, Crawl4AI, SearXNG);
+  only the LLM calls were remote. Switching them to local = repointing the LiteLLM aliases at Ollama.
+- **"Is LiteLLM needed?" — kept, pointed at local.** It's not strictly required (GPTR could hit Ollama's
+  OpenAI endpoint directly), but keeping it means the artifact-extraction pass and eval judge (which call
+  the `smart`/`judge` aliases) work unchanged, model names stay out of app code (rule #1), and the
+  one-line frontier swap is preserved. Cost: one small container. Going proxy-less is documented in
+  CHECKLIST as a non-recommended option.
+- **Changes (config-only, zero app code):** `docker/litellm/config.yaml` → `ollama_chat/<model>` for
+  strategic(qwen2.5:7b)/smart(qwen2.5:7b)/fast(qwen2.5:3b)/judge(llama3.1:8b, different family);
+  docker-compose litellm gets `extra_hosts: host.docker.internal:host-gateway` so the container reaches
+  host Ollama; `.env.example` drops required keys, adds `OLLAMA_BASE_URL`. Embeddings stay local BGE-M3.
+- Frontier remains a one-line swap per role (openrouter/anthropic/vllm) — the model-agnostic goal holds.
+
 ### Verified offline this session
 - Config load, citation validation, artifact store round-trip + versioning, cache set/get + staleness,
   and a real BM25 vault search over the 367-page wiki — all pass. The only unverified parts are the live

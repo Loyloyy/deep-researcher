@@ -1,52 +1,49 @@
 # =============================================================================
 # LiteLLM proxy — THE single switch-point for model routing.
 #
-# GPT Researcher always calls stable aliases: strategic / smart / fast.
-# To swap a role between OpenRouter / direct API / vLLM, edit only litellm_params below.
+# CURRENT MODE: fully local via Ollama (no frontier APIs, no keys).
+# GPT Researcher + the artifact/eval code always call the aliases
+# strategic / smart / fast / judge. To change a model, edit only litellm_params below.
 #
-#   OpenRouter: model: openrouter/<provider>/<model>   api_key: os.environ/OPENROUTER_API_KEY
-#   Anthropic : model: anthropic/claude-opus-4-8        api_key: os.environ/ANTHROPIC_API_KEY
-#   OpenAI    : model: openai/gpt-5                      api_key: os.environ/OPENAI_API_KEY_REAL
-#   vLLM/SGLang: model: hosted_vllm/<served-model-name>  api_base: os.environ/VLLM_BASE_URL
-#               (api_key can be any non-empty string for a local server)
+#   Ollama (local):  model: ollama_chat/<name>     api_base: os.environ/OLLAMA_BASE_URL
+#   vLLM/SGLang   :  model: hosted_vllm/<served>   api_base: os.environ/VLLM_BASE_URL
+#   OpenRouter    :  model: openrouter/<provider>/<model>   api_key: os.environ/OPENROUTER_API_KEY
+#   Anthropic     :  model: anthropic/claude-opus-4-8       api_key: os.environ/ANTHROPIC_API_KEY
 #
-# NOTE: OpenRouter is chat-only — it has NO embeddings endpoint. Embeddings are served
-# locally (BGE-M3) by default; see config/pipeline.yaml `embedding`. The `embedding`
-# alias below is only used if you set pipeline.yaml embedding to `openai:embedding`.
+# The litellm CONTAINER reaches Ollama running on the HOST via host.docker.internal
+# (see docker-compose extra_hosts + OLLAMA_BASE_URL in .env).
 #
-# Confirm exact OpenRouter slugs at https://openrouter.ai/models — the string after
-# `openrouter/` is passed through verbatim.
+# Embeddings are NOT here — they run locally in-process (BGE-M3); see config/pipeline.yaml.
 # =============================================================================
 
 model_list:
-  # Planner — decides what to research (quality matters)
+  # Planner — decides what to research
   - model_name: strategic
     litellm_params:
-      model: openrouter/anthropic/claude-opus-4.8   # <-- confirm slug
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: ollama_chat/qwen2.5:7b-instruct
+      api_base: os.environ/OLLAMA_BASE_URL
 
-  # Writer — synthesizes the final report (quality matters)
+  # Writer — synthesizes the final report
   - model_name: smart
     litellm_params:
-      model: openrouter/anthropic/claude-opus-4.8   # <-- confirm slug
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: ollama_chat/qwen2.5:7b-instruct
+      api_base: os.environ/OLLAMA_BASE_URL
 
-  # Summarizer — high-volume per-page compression (keep cheap/fast)
+  # Summarizer — high-volume per-source compression (keep small/fast)
   - model_name: fast
     litellm_params:
-      model: openrouter/openai/gpt-4o-mini          # <-- confirm slug (any cheap model)
-      api_key: os.environ/OPENROUTER_API_KEY
+      model: ollama_chat/qwen2.5:3b-instruct
+      api_base: os.environ/OLLAMA_BASE_URL
 
-  # Embeddings alias — OPTIONAL. Only used if pipeline.yaml embedding=openai:embedding.
-  # Default embedding path is local BGE-M3 (in-process), so this normally goes unused.
-  - model_name: embedding
+  # Eval judge — DIFFERENT family than the generator (qwen) to avoid self-preference bias
+  - model_name: judge
     litellm_params:
-      model: openai/text-embedding-3-small
-      api_key: os.environ/OPENAI_API_KEY_REAL
+      model: ollama_chat/llama3.1:8b-instruct
+      api_base: os.environ/OLLAMA_BASE_URL
 
 litellm_settings:
   drop_params: true
-  # Observability: uncomment to stream all gateway traces (tokens/cost/latency) to Langfuse.
+  # Observability: uncomment to stream gateway traces to Langfuse (docker compose --profile obs up -d).
   # success_callback: ["langfuse"]
 
 general_settings:

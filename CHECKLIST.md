@@ -1,65 +1,84 @@
-# deep-researcher — server checklist & usage
+# deep-researcher — bring-up checklist & usage
 
-A practical runbook for bringing the pipeline up on the server (where the models live)
-and using it. Verify top-to-bottom; each layer builds on the previous one.
+**Current mode: fully LOCAL (Ollama) — no frontier APIs, no API keys.**
+Everything runs on your machine: LLMs via Ollama, embeddings (BGE-M3) + reranker in-process,
+Crawl4AI scraping, SearXNG search, LiteLLM proxy. Verify top-to-bottom.
+
+> Where to find this: repo root. Overview = `README.md`, rationale = `DECISIONS.md`, agent rules = `CLAUDE.md`.
 
 ---
 
 ## ✅ Bring-up checklist (in order)
 
-### 1. Config
-- [ ] `.env` exists (`cp .env.example .env`).
-- [ ] `OPENAI_API_KEY` **==** `LITELLM_MASTER_KEY` — this is the app→proxy auth, **not** your real key.
-- [ ] `OPENROUTER_API_KEY` set.
-- [ ] `docker/litellm/config.yaml`: the 3 OpenRouter slugs (`strategic`/`smart`/`fast`) are real — confirm at https://openrouter.ai/models.
+### 0. Prereqs
+- [ ] Docker + Compose.
+- [ ] **Ollama** installed and running (`ollama --version`, `curl -s localhost:11434/api/tags`).
+- [ ] A GPU helps but isn't required (small models + BGE run on CPU, just slower).
 
-### 2. Services up
+### 1. Pull local models
 ```bash
-cd docker && docker compose up -d && docker compose ps   # add --profile obs for langfuse
+ollama pull qwen2.5:7b-instruct      # strategic + smart (planner/writer)
+ollama pull qwen2.5:3b-instruct      # fast (per-source summarizer)
+ollama pull llama3.1:8b-instruct     # judge (eval only; different family) — optional
 ```
-- [ ] `dr-searxng` and `dr-litellm` both show `Up`.
-- [ ] If litellm restarts: `docker compose logs litellm | tail -30` (usually a missing key in `.env`).
+- [ ] On a 16 GB box these fit one or two at a time; Ollama loads/unloads on demand (a run that
+      switches between 7b and 3b will pause to reload — fine for testing). Swap to smaller models
+      (e.g. `qwen2.5:3b` everywhere, or `llama3.2:3b`) if memory is tight. Models are set in
+      `docker/litellm/config.yaml`.
 
-### 3. Gateway routing (catch model problems before a 5-min run)
+### 2. Config (no keys needed)
 ```bash
+cp .env.example .env
+```
+- [ ] Defaults are fine. `OPENAI_API_KEY` already equals `LITELLM_MASTER_KEY` (app→proxy auth).
+- [ ] `OLLAMA_BASE_URL=http://host.docker.internal:11434` (so the proxy *container* reaches host Ollama).
+
+### 3. Start services
+```bash
+cd docker && docker compose up -d && docker compose ps      # searxng + litellm
+```
+- [ ] `dr-searxng` + `dr-litellm` both `Up`. If litellm restarts: `docker compose logs litellm | tail -30`.
+
+### 4. Gateway routing (proves the proxy reaches Ollama — do this before any long run)
+```bash
+cd ..
 export $(grep ^LITELLM_MASTER_KEY .env | xargs)
 curl -s http://localhost:4000/health/liveliness                         # -> I'm alive!
 curl -s http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H "Content-Type: application/json" \
   -d '{"model":"strategic","messages":[{"role":"user","content":"say ok"}]}'
 ```
-- [ ] `strategic` returns a JSON answer. Repeat with `"model":"fast"` (and `"smart"`).
-- [ ] **401** = `OPENAI_API_KEY` ≠ master key. **400 / credential** = bad OpenRouter slug or key.
+- [ ] `strategic` returns a JSON answer (first call may be slow — Ollama loads the model). Try `"fast"` too.
+- [ ] **Connection error** → proxy can't reach Ollama: confirm Ollama is running and `OLLAMA_BASE_URL`
+      uses `host.docker.internal`. **404 model** → run `ollama pull <model>` from step 1.
 
-### 4. Search
+### 5. Search
 ```bash
 curl -s 'http://localhost:8080/search?q=test&format=json' | head -c 200    # -> JSON
 ```
-- [ ] SearXNG returns JSON results.
 
-### 5. Install
+### 6. Install the app
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
 python -m playwright install chromium      # Crawl4AI needs a browser
 ```
-- [ ] First research run downloads BGE-M3 + bge-reranker (~1.5 GB) — expected, one-time.
+- [ ] First research run downloads BGE-M3 + bge-reranker (~1.5 GB, one-time).
 
-### 6. First real run
+### 7. First real run
 ```bash
 python -m deep_researcher.cli "What is speculative decoding and when does it help?"
 ```
-- [ ] Report has **inline citations** and a non-empty `sources` list.
-- [ ] Artifact saved at `artifacts/<id>/v01.json`.
-- [ ] Run finishes within `wall_clock_timeout_s` (default 1200s) and stops at `max_iterations`.
+- [ ] Report has inline citations + non-empty `sources`; artifact saved at `artifacts/<id>/v01.json`;
+      finishes within `wall_clock_timeout_s`.
 
-### 7. Check the fragile seams (read the logs once)
-- [ ] Log shows `cross-encoder rerank enabled (...)`. If instead `rerank disabled — … drift`, GPTR
-      internals moved — paste it, it's a quick patch. (Pipeline still runs without rerank.)
-- [ ] A few `crawl4ai scrape failed … skip` lines are normal (paywalls/403s). **All** sources empty
-      ⇒ adapter/field drift — check `crawl4ai_scraper.py`.
+### 8. Check the fragile seams (read logs once)
+- [ ] `cross-encoder rerank enabled (...)` appears. If `rerank disabled — … drift` → run `/gptr-drift`.
+- [ ] A few `crawl4ai scrape failed … skip` lines are normal (paywalls/403s). All-empty ⇒ adapter drift.
+- [ ] Small local models occasionally emit imperfect JSON for the artifact pass — the code retries once
+      and skips malformed rows, so the artifact still saves (may have fewer findings). Bigger model = better.
 
-### 8. Offline sanity (anytime, no services/keys)
+### 9. Offline sanity (anytime, no services)
 ```bash
 PYTHONPATH=src python -m pytest tests/ -q
 ```
@@ -73,58 +92,47 @@ PYTHONPATH=src python -m pytest tests/ -q
 python -m deep_researcher.cli "your topic"
 python -m deep_researcher.cli "your topic" "optional brief / focus"
 python -m deep_researcher.cli "your topic" --refine dra-abc123   # extend an existing artifact
-python -m deep_researcher.cli "your topic" --no-artifact-print   # report only
 ```
 
 ### Python
 ```python
 from deep_researcher import run_research
-
 report_md, artifact = run_research("speculative decoding", brief="cover when it fails")
-print(artifact.id, artifact.version)          # -> artifacts/<id>/v01.json
-
-# Refine: take a prior artifact as input, deepen/extend it (lineage preserved)
-report_md, v2 = run_research(
-    "speculative decoding",
-    brief="deepen the acceptance-rate section",
-    parent_id=artifact.id,                    # -> v02 under the same id
-)
+print(artifact.id, artifact.version)            # -> artifacts/<id>/v01.json
+report_md, v2 = run_research("speculative decoding",
+                             brief="deepen the acceptance-rate section",
+                             parent_id=artifact.id)   # -> v02, lineage preserved
 ```
 
 ### UI
 ```bash
-python -m deep_researcher.ui.gradio_app
+python -m deep_researcher.ui.gradio_app    # topic in → live progress → report + artifact (edit→refine)
 ```
-Topic in → live progress → **Report** tab → **Artifact** tab (edit the JSON, hit **Refine** for the next version).
 
-### Switch a model (no code change)
-Edit one block in `docker/litellm/config.yaml` (e.g. point `fast` at a local vLLM:
-`model: hosted_vllm/<served-name>`, `api_base: os.environ/VLLM_BASE_URL`), then:
-```bash
-cd docker && docker compose restart litellm
-```
-Roles: `strategic` = planner, `smart` = report writer, `fast` = high-volume per-source summarizer.
+### Change a model (no code change)
+Edit one block in `docker/litellm/config.yaml`, then `cd docker && docker compose restart litellm`.
+Roles: `strategic` = planner, `smart` = writer, `fast` = summarizer, `judge` = eval.
+- bigger local model: `model: ollama_chat/qwen2.5:14b-instruct`
+- local vLLM: `model: hosted_vllm/<served-name>`, `api_base: os.environ/VLLM_BASE_URL`
+- frontier later: `model: openrouter/<provider>/<model>`, `api_key: os.environ/OPENROUTER_API_KEY` (+ key in `.env`)
 
 ### Vault ("second brain") — optional
 ```bash
 python scripts/duplicate_vault.py                                   # read-only copy -> vault_data/wiki
-VAULT_WIKI_DIR=vault_data/wiki python -m deep_researcher.vault.server   # HTTP retriever on :8090
+VAULT_WIKI_DIR=vault_data/wiki python -m deep_researcher.vault.server   # retriever HTTP on :8090
 ```
-Then set `vault.enabled: true` in `config/pipeline.yaml`. Web + wiki hits merge into one reranked pool.
-Optional MCP server for the downstream POC-builder: `python -m deep_researcher.vault.mcp_server` (needs `pip install mcp`).
+Then set `vault.enabled: true` in `config/pipeline.yaml`. Web + wiki merge into one reranked pool.
 
 ### Eval
-Add a `judge` alias (a **different** model family than the generator) to `docker/litellm/config.yaml`, then:
+The `judge` alias is already in the LiteLLM config (llama3.1, different family than qwen):
 ```bash
-JUDGE_MODEL=judge python eval/run_eval.py --limit 5      # drop --limit for the full 18-topic set
+JUDGE_MODEL=judge python eval/run_eval.py --limit 5     # writes eval_results.json
 ```
-Writes `eval_results.json` (avg report_quality 1–5 + citation_structural).
 
 ### Observability — optional
 ```bash
-cd docker && docker compose --profile obs up -d          # langfuse on :3000
-# then uncomment `success_callback: ["langfuse"]` in docker/litellm/config.yaml and:
-docker compose restart litellm
+cd docker && docker compose --profile obs up -d         # langfuse on :3000
+# then uncomment success_callback in docker/litellm/config.yaml and: docker compose restart litellm
 ```
 
 ---
@@ -133,21 +141,25 @@ docker compose restart litellm
 | Knob | Default | Notes |
 |---|---|---|
 | `research.scraper` | `crawl4ai` | `bs` for a no-browser run |
-| `research.max_iterations` | 3 | research loop cap (cost) |
-| `research.wall_clock_timeout_s` | 1200 | per-run circuit breaker |
-| `embedding` | `huggingface:BAAI/bge-m3` | `openai:embedding` to route via proxy |
-| `rerank.enabled` / `keep_top_k` | true / 10 | cross-encoder rerank stage |
+| `research.max_iterations` | 3 | research loop cap |
+| `research.wall_clock_timeout_s` | 1200 | per-run circuit breaker (raise it — local models are slower) |
+| `embedding` | `huggingface:BAAI/bge-m3` | local, in-process |
+| `rerank.enabled` / `keep_top_k` | true / 10 | local cross-encoder |
 | `cache.enabled` / `staleness_hours` | true / 24 | URL content cache |
 | `artifact.enabled` | true | structured extraction pass |
 | `vault.enabled` | false | merge the wiki retriever |
 
-**No-GPU local slice:** `scraper: bs`, `embedding: openai:embedding`, `rerank.enabled: false`,
-`artifact.enabled: false` — verifies the loop without local models.
+**Fastest smoke test (skip the heavy bits):** `scraper: bs`, `rerank.enabled: false`,
+`artifact.enabled: false`, and point all roles at `qwen2.5:3b-instruct`.
 
 ---
 
+## Going proxy-less (if you really want no LiteLLM)
+Possible but not recommended: set `OPENAI_BASE_URL=http://localhost:11434/v1` and `OPENAI_API_KEY=ollama`,
+then change `docker/litellm/config.yaml` references — you'd have to hardcode raw model names in the
+extraction (`artifact/extract.py`, model `smart`) and eval (`JUDGE_MODEL`) paths, and lose the one-line
+frontier swap. Keeping the proxy pointed at Ollama costs one small container and avoids all that.
+
 ## Most likely first failure
-A GPT Researcher version drift on a method/field name (e.g. `get_research_sources`, the
-`SCRAPER_CLASSES` registry, or the `ContextCompressor` internals the rerank patch targets). All are
-wrapped to degrade rather than crash — paste the traceback or the `rerank disabled` log line and it's a
-small patch. See `DECISIONS.md` for where each seam attaches.
+Ollama not reachable from the container (`OLLAMA_BASE_URL` / host.docker.internal) or a model not pulled.
+After that: a GPT Researcher version drift on the fragile seams — run `/gptr-drift` or see `DECISIONS.md`.
