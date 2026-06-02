@@ -1,0 +1,60 @@
+name: deep-researcher
+
+# Core services (searxng + litellm) start with `docker compose up -d`.
+# Observability (langfuse) is opt-in: `docker compose --profile obs up -d`.
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: dr-searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    restart: unless-stopped
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.83.0   # pinned: post-incident clean release
+    container_name: dr-litellm
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    env_file:
+      - ../.env
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    restart: unless-stopped
+
+  # ---- Observability (profile: obs) ----
+  langfuse-db:
+    image: postgres:16
+    container_name: dr-langfuse-db
+    profiles: ["obs"]
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: dr-langfuse
+    profiles: ["obs"]
+    depends_on:
+      - langfuse-db
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: change-me-please
+      SALT: change-me-please
+      NEXTAUTH_URL: http://localhost:3000
+      TELEMETRY_ENABLED: "false"
+    restart: unless-stopped
+
+volumes:
+  langfuse-db-data:

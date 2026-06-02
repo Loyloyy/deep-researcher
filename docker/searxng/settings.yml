@@ -1,0 +1,15 @@
+# Minimal SearXNG settings for programmatic use by GPT Researcher.
+# Merges over the image defaults via use_default_settings.
+use_default_settings: true
+
+server:
+  # CHANGE THIS to a long random string in real use.
+  secret_key: "change-me-to-a-32char-plus-random-secret"
+  limiter: false            # disable rate limiter for local programmatic queries
+  image_proxy: false
+
+search:
+  # JSON is required for GPT Researcher's searx retriever.
+  formats:
+    - html
+    - json

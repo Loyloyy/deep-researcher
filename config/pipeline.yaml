@@ -1,0 +1,37 @@
+# Non-model pipeline knobs.
+# Model routing (which OpenRouter/API/vLLM model each role uses) lives in
+# docker/litellm/config.yaml — that is the single switch-point.
+#
+# Defaults below assume the FULL stack (server build). To run a lightweight local
+# slice without local models, flip: scraper->bs, embedding->openai:embedding,
+# rerank.enabled->false, artifact.enabled->false.
+
+research:
+  report_type: research_report
+  retriever: searx                    # add ',custom' to merge the vault (set vault.enabled too)
+  scraper: crawl4ai                   # custom adapter; PDFs/arxiv still auto-route internally
+  max_iterations: 3
+  max_search_results_per_query: 5
+  wall_clock_timeout_s: 1200
+
+# Local BGE-M3 in-process (no API key). For OpenAI/Azure embeddings via the proxy
+# use 'openai:embedding'. For a BGE-M3 served over HTTP, also set EMBEDDING_BASE_URL.
+embedding: huggingface:BAAI/bge-m3
+
+rerank:
+  enabled: true
+  model: BAAI/bge-reranker-v2-m3      # keep same family as the embedder
+  retrieve_top_n: 50                  # wide first-pass (embeddings) before rerank
+  keep_top_k: 10                      # kept after cross-encoder rerank
+
+cache:
+  enabled: true
+  staleness_hours: 24                 # re-fetch a URL if cached copy is older
+
+artifact:
+  enabled: true
+  model: smart                        # litellm alias used for the extraction pass
+
+vault:
+  enabled: false                      # Phase 4: flip on after duplicating the wiki + starting the service
+  endpoint: http://localhost:8090/search

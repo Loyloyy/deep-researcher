@@ -1,0 +1,53 @@
+# =============================================================================
+# LiteLLM proxy — THE single switch-point for model routing.
+#
+# GPT Researcher always calls stable aliases: strategic / smart / fast.
+# To swap a role between OpenRouter / direct API / vLLM, edit only litellm_params below.
+#
+#   OpenRouter: model: openrouter/<provider>/<model>   api_key: os.environ/OPENROUTER_API_KEY
+#   Anthropic : model: anthropic/claude-opus-4-8        api_key: os.environ/ANTHROPIC_API_KEY
+#   OpenAI    : model: openai/gpt-5                      api_key: os.environ/OPENAI_API_KEY_REAL
+#   vLLM/SGLang: model: hosted_vllm/<served-model-name>  api_base: os.environ/VLLM_BASE_URL
+#               (api_key can be any non-empty string for a local server)
+#
+# NOTE: OpenRouter is chat-only — it has NO embeddings endpoint. Embeddings are served
+# locally (BGE-M3) by default; see config/pipeline.yaml `embedding`. The `embedding`
+# alias below is only used if you set pipeline.yaml embedding to `openai:embedding`.
+#
+# Confirm exact OpenRouter slugs at https://openrouter.ai/models — the string after
+# `openrouter/` is passed through verbatim.
+# =============================================================================
+
+model_list:
+  # Planner — decides what to research (quality matters)
+  - model_name: strategic
+    litellm_params:
+      model: openrouter/anthropic/claude-opus-4.8   # <-- confirm slug
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Writer — synthesizes the final report (quality matters)
+  - model_name: smart
+    litellm_params:
+      model: openrouter/anthropic/claude-opus-4.8   # <-- confirm slug
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Summarizer — high-volume per-page compression (keep cheap/fast)
+  - model_name: fast
+    litellm_params:
+      model: openrouter/openai/gpt-4o-mini          # <-- confirm slug (any cheap model)
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Embeddings alias — OPTIONAL. Only used if pipeline.yaml embedding=openai:embedding.
+  # Default embedding path is local BGE-M3 (in-process), so this normally goes unused.
+  - model_name: embedding
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY_REAL
+
+litellm_settings:
+  drop_params: true
+  # Observability: uncomment to stream all gateway traces (tokens/cost/latency) to Langfuse.
+  # success_callback: ["langfuse"]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

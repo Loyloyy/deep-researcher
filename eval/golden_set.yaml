@@ -1,0 +1,43 @@
+# Golden set for pipeline evaluation. Mix of general + AI-engineering topics
+# (the pipeline must be generic, not AI-only). `reference` is an optional short
+# gold answer the judge can compare against; omit it for open-ended topics.
+topics:
+  - id: spec-decoding
+    topic: "What is speculative decoding and when does it help LLM inference?"
+    brief: "Cover draft-target setup, acceptance rate, and when it does NOT help."
+  - id: rag-rerankers
+    topic: "Cross-encoder rerankers in RAG: when are they worth the latency?"
+  - id: vllm-vs-sglang
+    topic: "vLLM vs SGLang for serving open-weight LLMs in 2026"
+    brief: "Throughput, prefix caching, structured output support."
+  - id: bge-m3
+    topic: "BGE-M3 embeddings: what makes the dense+sparse+colbert hybrid useful?"
+  - id: mcp-protocol
+    topic: "Model Context Protocol (MCP): what problem does it solve and how?"
+  - id: guided-json
+    topic: "Grammar-constrained decoding for reliable JSON from open-weight models"
+  - id: kv-cache
+    topic: "KV cache management techniques for long-context LLM serving"
+  - id: agent-eval
+    topic: "How do you evaluate autonomous agents beyond task success rate?"
+  - id: prompt-injection
+    topic: "Prompt injection defenses for tool-using agents"
+  - id: finetune-vs-rag
+    topic: "When to fine-tune vs use RAG for domain adaptation"
+  # --- general (non-AI) topics to keep it honest ---
+  - id: solid-state-batteries
+    topic: "State of solid-state batteries for EVs as of 2026"
+  - id: crispr-therapies
+    topic: "Approved CRISPR-based therapies and how they work"
+  - id: carbon-capture
+    topic: "Direct air capture: current cost per ton and main approaches"
+  - id: housing-yimby
+    topic: "Evidence on whether upzoning lowers housing costs"
+  - id: ozempic-mechanism
+    topic: "GLP-1 agonists: mechanism of action and known long-term effects"
+  - id: fusion-2026
+    topic: "Net-energy-gain progress in nuclear fusion since 2022"
+  - id: quantum-error
+    topic: "Quantum error correction: surface codes vs newer approaches"
+  - id: remote-work-productivity
+    topic: "What does the evidence say about remote work and productivity?"

@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+# Persisted research artifacts (kept out of git by default; flip if you want them versioned)
+artifacts/
+# Duplicated vault working copy + URL content cache + eval output
+vault_data/
+.dr_cache/
+eval_results.json
+# Langfuse / docker volumes handled by docker, not git

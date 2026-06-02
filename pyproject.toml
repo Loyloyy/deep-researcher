@@ -1,0 +1,47 @@
+[project]
+name = "deep-researcher"
+version = "0.1.0"
+description = "Generic, model-agnostic deep research pipeline (GPT Researcher core + SearXNG + LiteLLM gateway)."
+requires-python = ">=3.10"
+dependencies = [
+  "gpt-researcher",
+  # SECURITY: pinned per the March 2026 supply-chain incident (malicious 1.82.7/1.82.8).
+  # 1.83.0 is the rebuilt, verified-clean release. Bump only after reviewing the changelog + pip-audit.
+  "litellm==1.83.0",
+  "openai>=1.30",          # structured-artifact extraction pass (talks to the LiteLLM proxy)
+  "python-dotenv",
+  "pyyaml",
+  "pydantic>=2",
+]
+
+[project.optional-dependencies]
+# Phase 2 — quality layer (extraction + local embeddings + cross-encoder rerank)
+quality = [
+  "crawl4ai>=0.4",
+  "sentence-transformers",
+  "langchain-huggingface",
+  "langchain-community",
+]
+# Phase 4 — vault retriever service
+vault = [
+  "fastapi",
+  "uvicorn[standard]",
+  "rank-bm25",
+]
+# Phase 5 — UI
+ui = ["gradio>=4"]
+# Everything, for the server build
+all = [
+  "crawl4ai>=0.4", "sentence-transformers", "langchain-huggingface", "langchain-community",
+  "fastapi", "uvicorn[standard]", "rank-bm25", "gradio>=4",
+]
+
+[project.scripts]
+deep-researcher = "deep_researcher.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
