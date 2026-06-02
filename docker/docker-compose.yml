@@ -1,4 +1,4 @@
-name: deep-researcher
+version: "3.8"
 
 # Core services (searxng + litellm) start with `docker compose up -d`.
 # Observability (langfuse) is opt-in: `docker compose --profile obs up -d`.
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   litellm:
-    image: ghcr.io/berriai/litellm:main-v1.83.0   # pinned: post-incident clean release
+    image: ghcr.io/berriai/litellm:main-v1.83.0-stable   # pinned: post-incident clean release
     container_name: dr-litellm
     ports:
       - "4000:4000"
@@ -29,6 +29,30 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     restart: unless-stopped
+
+  # ---- The pipeline app (run via `docker-compose run`, not auto-started) ----
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: deep-researcher-app
+    container_name: dr-app
+    profiles: ["app"]
+    depends_on:
+      - searxng
+      - litellm
+    env_file:
+      - ../.env
+    environment:
+      # inside the compose network, reach services by name (not localhost)
+      - OPENAI_BASE_URL=http://litellm:4000
+      - SEARX_URL=http://searxng:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../artifacts:/app/artifacts        # persisted research artifacts
+      - ../vault_data:/app/vault_data       # optional duplicated wiki
+      - hf-cache:/app/.hf_cache             # BGE-M3 + reranker weights (cached across runs)
 
   # ---- Observability (profile: obs) ----
   langfuse-db:
@@ -61,3 +85,4 @@ services:
 
 volumes:
   langfuse-db-data:
+  hf-cache:

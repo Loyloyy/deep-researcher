@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+*.egg-info
+.dr_cache
+artifacts
+vault_data
+.hf_cache
+node_modules
+.env
+tests
