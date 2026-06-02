@@ -38,6 +38,11 @@ def _apply_env(cfg: RunConfig) -> None:
 
 def _wire_extensions(cfg: RunConfig) -> None:
     configure_default_cache(enabled=cfg.cache.enabled, ttl_hours=cfg.cache.staleness_hours)
+    if "searx" in cfg.retriever.split(","):
+        # make SearXNG hits go through the real scraper instead of using snippets
+        from .search_patch import force_full_scrape
+
+        force_full_scrape()
     if cfg.scraper == "crawl4ai":
         from .scrapers import register_crawl4ai
 

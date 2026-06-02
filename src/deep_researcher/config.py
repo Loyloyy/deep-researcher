@@ -1,6 +1,7 @@
 """Pipeline configuration: loads .env + config/pipeline.yaml into a RunConfig."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -70,10 +71,12 @@ def load_config(path: str | Path | None = None) -> RunConfig:
         max_iterations=int(r.get("max_iterations", 3)),
         max_search_results_per_query=int(r.get("max_search_results_per_query", 5)),
         wall_clock_timeout_s=int(r.get("wall_clock_timeout_s", 1200)),
-        embedding=data.get("embedding", "huggingface:BAAI/bge-m3"),
+        # Env overrides (DR_EMBEDDING / DR_RERANK_MODEL) win over pipeline.yaml, so machine-specific
+        # private model paths live in .env (gitignored) and never get clobbered by git pulls.
+        embedding=os.environ.get("DR_EMBEDDING") or data.get("embedding", "huggingface:BAAI/bge-m3"),
         rerank=RerankConfig(
             enabled=bool(rk.get("enabled", True)),
-            model=rk.get("model", "BAAI/bge-reranker-v2-m3"),
+            model=os.environ.get("DR_RERANK_MODEL") or rk.get("model", "BAAI/bge-reranker-v2-m3"),
             retrieve_top_n=int(rk.get("retrieve_top_n", 50)),
             keep_top_k=int(rk.get("keep_top_k", 10)),
         ),

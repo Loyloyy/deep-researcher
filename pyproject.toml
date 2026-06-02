@@ -19,6 +19,7 @@ dependencies = [
 quality = [
   "crawl4ai>=0.4",
   "sentence-transformers",
+  "langchain",                 # provides langchain.retrievers (CrossEncoderReranker etc.)
   "langchain-huggingface",
   "langchain-community",
 ]
@@ -32,7 +33,8 @@ vault = [
 ui = ["gradio>=4"]
 # Everything, for the server build
 all = [
-  "crawl4ai>=0.4", "sentence-transformers", "langchain-huggingface", "langchain-community",
+  "crawl4ai>=0.4", "sentence-transformers",
+  "langchain", "langchain-huggingface", "langchain-community",
   "fastapi", "uvicorn[standard]", "rank-bm25", "gradio>=4",
 ]
 

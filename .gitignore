@@ -1,4 +1,7 @@
 .env
+# host-specific docker overrides (model mounts, GPU, etc.) — keep out of git
+docker/docker-compose.override.yml
+docker-compose.override.yml
 .venv/
 venv/
 __pycache__/

@@ -134,8 +134,8 @@ Running log of non-trivial choices and rationale. Newest phases appended over ti
 - **"Is LiteLLM needed?" — kept, pointed at local.** It's not strictly required (GPTR could hit Ollama's
   OpenAI endpoint directly), but keeping it means the artifact-extraction pass and eval judge (which call
   the `smart`/`judge` aliases) work unchanged, model names stay out of app code (rule #1), and the
-  one-line frontier swap is preserved. Cost: one small container. Going proxy-less is documented in
-  CHECKLIST as a non-recommended option.
+  one-line frontier swap is preserved. Cost: one small container. Going proxy-less is possible but
+  not recommended (you'd hardcode raw model names in the extract/eval paths and lose the frontier swap).
 - **Changes (config-only, zero app code):** `docker/litellm/config.yaml` → `ollama_chat/<model>` for
   strategic(qwen2.5:7b)/smart(qwen2.5:7b)/fast(qwen2.5:3b)/judge(llama3.1:8b, different family);
   docker-compose litellm gets `extra_hosts: host.docker.internal:host-gateway` so the container reaches

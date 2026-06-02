@@ -55,27 +55,27 @@ def enable_reranker(model_name: str, retrieve_top_n: int = 50, keep_top_k: int =
         return False
 
     def patched_get_contextual_retriever(self):
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        redundant = EmbeddingsRedundantFilter(embeddings=self.embeddings)  # dedup near-identical chunks
-        threshold = getattr(self, "similarity_threshold", 0.42)
-        relevance = EmbeddingsFilter(
-            embeddings=self.embeddings, similarity_threshold=threshold, k=retrieve_top_n
-        )
-        reranker = _get_reranker(model_name, keep_top_k)
-        pipeline = DocumentCompressorPipeline(
-            transformers=[splitter, redundant, relevance, reranker]
-        )
-        # Reuse GPTR's original builder to obtain a correctly-wired base retriever
-        # over self.documents, then swap in our reranking compressor pipeline.
-        original_retriever = _ORIGINAL(self)
+        # Fail-safe: any error here degrades to GPTR's default (unreranked) retriever
+        # rather than breaking the whole research run.
         try:
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            redundant = EmbeddingsRedundantFilter(embeddings=self.embeddings)  # dedup near-identical chunks
+            threshold = getattr(self, "similarity_threshold", 0.42)
+            relevance = EmbeddingsFilter(
+                embeddings=self.embeddings, similarity_threshold=threshold, k=retrieve_top_n
+            )
+            reranker = _get_reranker(model_name, keep_top_k)
+            pipeline = DocumentCompressorPipeline(
+                transformers=[splitter, redundant, relevance, reranker]
+            )
+            # Reuse GPTR's original builder for a correctly-wired base retriever over
+            # self.documents, then swap in our reranking compressor pipeline.
+            original_retriever = _ORIGINAL(self)
             original_retriever.base_compressor = pipeline
             return original_retriever
-        except Exception:
-            # Fallback: construct directly if structure differs
-            return ContextualCompressionRetriever(
-                base_compressor=pipeline, base_retriever=original_retriever.base_retriever
-            )
+        except Exception as e:
+            logger.warning("rerank step failed at runtime; using default retriever: %s", e)
+            return _ORIGINAL(self)
 
     # capture the original mangled method
     global _ORIGINAL

@@ -65,7 +65,9 @@ async def _arun(topic: str, brief: str, cfg: RunConfig, parent_id: str | None) -
     model_versions = {
         "aliases": {"strategic": "openai:strategic", "smart": "openai:smart", "fast": "openai:fast"},
         "embedding": cfg.embedding,
-        "costs": result.get("costs"),
+        # GPTR's $ cost is a token-estimate from a price table; meaningless for local/self-hosted
+        # models, so we don't record it. Use Langfuse for real token/latency accounting.
+        "costs": None,
         "elapsed_s": result.get("elapsed_s"),
     }
 

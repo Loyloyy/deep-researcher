@@ -23,7 +23,7 @@ run_research(topic, brief)                ┌───────────�
 
 ## Quickstart (local-first, vLLM)
 
-Full step-by-step with checks is in **`CHECKLIST.md`**. Short version:
+Gotchas hit during bring-up are logged in **`DEV_NOTES.md`**. Short version:
 
 ```bash
 # 1. start your model server(s), e.g. vLLM (OpenAI-compatible)
