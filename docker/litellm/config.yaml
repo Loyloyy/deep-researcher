@@ -1,45 +1,39 @@
 # =============================================================================
-# LiteLLM proxy — THE single switch-point for model routing.
+# LiteLLM proxy — the router that puts 3 independent model endpoints behind ONE
+# OpenAI-compatible URL (which is all GPT Researcher + our extract/eval code speak).
 #
-# CURRENT MODE: fully local via Ollama (no frontier APIs, no keys).
-# GPT Researcher + the artifact/eval code always call the aliases
-# strategic / smart / fast / judge. To change a model, edit only litellm_params below.
+# YOU DON'T EDIT THIS FILE. It's a fixed template: each role's model id + endpoint +
+# key are read from .env (STRATEGIC_*, SMART_*, FAST_*, JUDGE_*). Declare your 3 models
+# (+ judge) there. Each role can independently be on-prem vLLM or a frontier API.
 #
-#   Ollama (local):  model: ollama_chat/<name>     api_base: os.environ/OLLAMA_BASE_URL
-#   vLLM/SGLang   :  model: hosted_vllm/<served>   api_base: os.environ/VLLM_BASE_URL
-#   OpenRouter    :  model: openrouter/<provider>/<model>   api_key: os.environ/OPENROUTER_API_KEY
-#   Anthropic     :  model: anthropic/claude-opus-4-8       api_key: os.environ/ANTHROPIC_API_KEY
-#
-# The litellm CONTAINER reaches Ollama running on the HOST via host.docker.internal
-# (see docker-compose extra_hosts + OLLAMA_BASE_URL in .env).
-#
-# Embeddings are NOT here — they run locally in-process (BGE-M3); see config/pipeline.yaml.
+# Roles: strategic = planner · smart = report writer · fast = per-source summarizer
+#        judge = eval only (different model family than the generator).
 # =============================================================================
 
 model_list:
-  # Planner — decides what to research
   - model_name: strategic
     litellm_params:
-      model: ollama_chat/qwen2.5:7b-instruct
-      api_base: os.environ/OLLAMA_BASE_URL
+      model: os.environ/STRATEGIC_MODEL
+      api_base: os.environ/STRATEGIC_API_BASE
+      api_key: os.environ/STRATEGIC_API_KEY
 
-  # Writer — synthesizes the final report
   - model_name: smart
     litellm_params:
-      model: ollama_chat/qwen2.5:7b-instruct
-      api_base: os.environ/OLLAMA_BASE_URL
+      model: os.environ/SMART_MODEL
+      api_base: os.environ/SMART_API_BASE
+      api_key: os.environ/SMART_API_KEY
 
-  # Summarizer — high-volume per-source compression (keep small/fast)
   - model_name: fast
     litellm_params:
-      model: ollama_chat/qwen2.5:3b-instruct
-      api_base: os.environ/OLLAMA_BASE_URL
+      model: os.environ/FAST_MODEL
+      api_base: os.environ/FAST_API_BASE
+      api_key: os.environ/FAST_API_KEY
 
-  # Eval judge — DIFFERENT family than the generator (qwen) to avoid self-preference bias
   - model_name: judge
     litellm_params:
-      model: ollama_chat/llama3.1:8b-instruct
-      api_base: os.environ/OLLAMA_BASE_URL
+      model: os.environ/JUDGE_MODEL_NAME
+      api_base: os.environ/JUDGE_API_BASE
+      api_key: os.environ/JUDGE_API_KEY
 
 litellm_settings:
   drop_params: true

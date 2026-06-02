@@ -27,15 +27,18 @@ Full rationale for every choice is in `DECISIONS.md`. Setup/usage is in `README.
 - **Search:** SearXNG (`RETRIEVER=searx`); vault adds `,custom` → merged into one pool.
 - **Extract:** Crawl4AI adapter (`scrapers/crawl4ai_scraper.py`), registered into GPTR's `SCRAPER_CLASSES`.
 - **Rerank:** cross-encoder (`rerank/patch.py`) monkeypatched into GPTR's context compression.
-- **Models:** all calls go through the **LiteLLM proxy** (`docker/litellm/config.yaml`) via the
-  aliases `strategic`/`smart`/`fast`. The proxy is the **single switch-point** for OpenRouter/API/vLLM.
+- **Models:** all calls go through the **LiteLLM proxy** via roles `strategic`/`smart`/`fast` (+ `judge`
+  for eval). Each role's model id + endpoint + key is declared **in `.env`** (`STRATEGIC_*`, `SMART_*`,
+  `FAST_*`, `JUDGE_*`); `docker/litellm/config.yaml` is a **fixed env-driven template** (do not edit it).
+  The proxy lets each role be an independent on-prem vLLM endpoint or a frontier API.
 - **Artifact:** `artifact/` — schema, extraction pass, citation validation, versioned store.
 - **Vault / UI / eval:** `vault/`, `ui/gradio_app.py`, `eval/`.
 
 ## Hard rules
 
-1. **Never name a concrete model in app code.** Roles map to aliases only; real models live in
-   `docker/litellm/config.yaml`. Switching providers must stay config-only.
+1. **Never name a concrete model in app code.** Roles map to proxy aliases only; real models live in
+   `.env` (per-role `*_MODEL`/`*_API_BASE`/`*_API_KEY`), wired by the fixed `docker/litellm/config.yaml`
+   template. Switching models/providers must stay `.env`-only.
 2. **Never put pipeline logic in the UI.** `ui/` is presentation over `run_research` — nothing else.
 3. **Keep the core generic.** No AI/LLM-domain assumptions baked into the pipeline; the AI-Engineer use
    case is just the first consumer.
@@ -68,8 +71,9 @@ All three are wrapped to **degrade, not crash** if internals drift; a drift show
 ## Conventions
 
 - Package import name is `deep_researcher` (folder `deep-researcher`); src layout under `src/`.
-- Config: `config/pipeline.yaml` for non-model knobs; `.env` for secrets/endpoints; `docker/litellm/config.yaml`
-  for model routing. `RunConfig` (in `config.py`) is the single typed config object.
+- Config: `config/pipeline.yaml` for non-model knobs; `.env` declares the 3 models (+ judge) and secrets;
+  `docker/litellm/config.yaml` is a fixed env-driven template (not edited). `RunConfig` (in `config.py`)
+  is the single typed config object.
 - Persisted artifacts: `artifacts/<id>/vNN.json`. Refinement bumps version under the same id via `parent_id`.
 
 ## Status

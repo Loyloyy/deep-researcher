@@ -21,16 +21,16 @@ run_research(topic, brief)                ┌───────────�
   report.md  +  DeepResearchArtifact (versioned, citation-validated, persisted)
 ```
 
-## Quickstart (LOCAL — Ollama, no API keys)
+## Quickstart (local-first, vLLM)
 
 Full step-by-step with checks is in **`CHECKLIST.md`**. Short version:
 
 ```bash
-# 1. local models
-ollama pull qwen2.5:7b-instruct && ollama pull qwen2.5:3b-instruct
+# 1. start your model server(s), e.g. vLLM (OpenAI-compatible)
+#    python -m vllm.entrypoints.openai.api_server --model <path> --port 8000
 
-# 2. configure (defaults work as-is; no keys)
-cp .env.example .env
+# 2. declare the 3 models (+ judge) in .env — each role: MODEL + API_BASE + API_KEY
+cp .env.example .env   # then edit STRATEGIC_*, SMART_*, FAST_*, JUDGE_*
 
 # 3. services
 cd docker && docker compose up -d         # searxng + litellm   (add --profile obs for langfuse)
@@ -44,8 +44,9 @@ pip install -e ".[all]" && python -m playwright install chromium
 python -m deep_researcher.cli "What is speculative decoding and when does it help?"
 ```
 
-Models live in `docker/litellm/config.yaml` (the single switch-point). To use frontier later,
-repoint a role at `openrouter/...` or `anthropic/...` there + add the key in `.env` — no code change.
+**Models are chosen entirely in `.env`** — each of the 3 roles (+ judge) is independently an on-prem
+vLLM server or a frontier API. LiteLLM routes them behind one OpenAI URL; `docker/litellm/config.yaml`
+is a fixed template you never edit. Swap any model = edit its `.env` triple + `docker compose restart litellm`.
 
 ```python
 from deep_researcher import run_research

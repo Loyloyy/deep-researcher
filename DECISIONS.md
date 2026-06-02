@@ -142,6 +142,24 @@ Running log of non-trivial choices and rationale. Newest phases appended over ti
   host Ollama; `.env.example` drops required keys, adds `OLLAMA_BASE_URL`. Embeddings stay local BGE-M3.
 - Frontier remains a one-line swap per role (openrouter/anthropic/vllm) — the model-agnostic goal holds.
 
+## Models declared in `.env`; vLLM default; LiteLLM kept as the router (2026-06-03)
+
+- Discussed dropping LiteLLM. Conclusion: **keep it — it's the multiplexer, not bloat.** Reasoning:
+  the user wants each role to independently target its own endpoint+key (on-prem vLLM *or* frontier).
+  GPT Researcher has only ONE global `OPENAI_BASE_URL`, so it cannot address multiple same-protocol
+  endpoints itself. A router must sit between "N independent endpoints" and GPTR's single endpoint —
+  that's exactly LiteLLM. The user's proposed "list 3 models with {endpoint,key,id}" *is* a LiteLLM
+  `model_list`. Dropping it only works if all roles share one endpoint (one vLLM, one model) — and the
+  chosen default is per-role vLLM, which needs the router.
+- **Default backend = vLLM** (was Ollama). One vLLM serves one model per port; different models per role
+  = multiple ports, routed by the proxy.
+- **`.env` is now the single place to choose models.** Per role: `*_MODEL` (provider/id), `*_API_BASE`,
+  `*_API_KEY` for strategic/smart/fast/judge. `docker/litellm/config.yaml` became a **fixed env-driven
+  template** (`model: os.environ/STRATEGIC_MODEL`, etc.) that is never edited. Zero app code changed —
+  GPTR still calls the `strategic/smart/fast` aliases; extract/eval still call `smart`/`judge`.
+- Each role is independently local-or-frontier (vLLM / OpenRouter / Anthropic / OpenAI-compat) by setting
+  its triple. host vLLM reached from the container via `host.docker.internal` (compose `extra_hosts`).
+
 ### Verified offline this session
 - Config load, citation validation, artifact store round-trip + versioning, cache set/get + staleness,
   and a real BM25 vault search over the 367-page wiki — all pass. The only unverified parts are the live
