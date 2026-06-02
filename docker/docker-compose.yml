@@ -16,7 +16,8 @@ services:
     restart: unless-stopped
 
   litellm:
-    image: ghcr.io/berriai/litellm:main-v1.83.0-stable   # pinned: post-incident clean release
+    image: ghcr.io/berriai/litellm:main-stable   # rolling stable (well past the Mar-2026 bad versions).
+    # TODO: re-pin to a verified `-stable` version tag (e.g. vX.Y.Z-stable) for reproducibility/security.
     container_name: dr-litellm
     ports:
       - "4000:4000"
