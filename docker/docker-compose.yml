@@ -51,6 +51,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
+      - ../config:/app/config               # edit pipeline.yaml without rebuilding
       - ../artifacts:/app/artifacts        # persisted research artifacts
       - ../vault_data:/app/vault_data       # optional duplicated wiki
       - hf-cache:/app/.hf_cache             # BGE-M3 + reranker weights (cached across runs)

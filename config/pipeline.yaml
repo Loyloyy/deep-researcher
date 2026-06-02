@@ -9,7 +9,8 @@
 research:
   report_type: research_report
   retriever: searx                    # add ',custom' to merge the vault (set vault.enabled too)
-  scraper: crawl4ai                   # custom adapter; PDFs/arxiv still auto-route internally
+  scraper: bs                         # BeautifulSoup (no browser). Switch to 'crawl4ai' once Chromium
+                                      # is installed (needs Playwright CDN reachable at build time).
   max_iterations: 3
   max_search_results_per_query: 5
   wall_clock_timeout_s: 1200

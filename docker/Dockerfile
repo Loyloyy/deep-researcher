@@ -17,8 +17,9 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install --upgrade pip && pip install -e ".[all]"
 
-# Chromium + its OS deps for Crawl4AI
-RUN python -m playwright install --with-deps chromium
+# Chromium + its OS deps for Crawl4AI. Non-fatal: some networks block the Playwright
+# CDN — if so, the build still succeeds and you run with scraper=bs (no browser needed).
+RUN python -m playwright install --with-deps chromium || echo "WARN: chromium not installed; use scraper=bs"
 
 # Runtime assets
 COPY config ./config
