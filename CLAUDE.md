@@ -11,14 +11,14 @@ versioned DeepResearchArtifact)`. It is the **middle stage** of an eventual 3-pa
 **headless and decoupled**; the only contract to the outside is `run_research(...)` in and a
 persisted `DeepResearchArtifact` out. Do not build stages 1 or 3.
 
-Full rationale for every choice is in `DECISIONS.md`. Setup/usage is in `README.md` and
-`CHECKLIST.md`. This file is the rules + gotchas a coding agent needs.
+Full rationale for every choice is in `DECISIONS.md`; setup/usage in `README.md`; bugs hit and how
+they were mitigated in `DEV_NOTES.md`. This file is the rules + gotchas a coding agent needs.
 
 ## Commands
 
 - **Offline tests (run after every edit — no services/keys/GPU):** `PYTHONPATH=src python -m pytest tests/ -q`
 - **Run the pipeline:** `python -m deep_researcher.cli "topic" ["brief"]`
-- **Before any live / paid run:** `/preflight` — probes the LiteLLM proxy + SearXNG stack (CHECKLIST §3–§4).
+- **Before any live / paid run:** `/preflight` — probes the LiteLLM proxy + SearXNG stack.
 - **After a `gpt-researcher` bump:** `/gptr-drift` — re-checks the three fragile seams below, then offline tests.
 
 ## Architecture (one line per layer)
@@ -65,8 +65,8 @@ All three are wrapped to **degrade, not crash** if internals drift; a drift show
 
 - Offline (no services/keys/GPU): `PYTHONPATH=src python -m pytest tests/ -q` — covers schema, citation
   validation, artifact store/versioning, cache TTL, and a real BM25 vault search. **Run this after edits.**
-- Live (server only): the model/embedding/scrape path — see `CHECKLIST.md`. Don't run paid research
-  passes without the user's go-ahead.
+- Live (server only): the model/embedding/scrape path — see `README.md` quickstart. Don't run paid
+  research passes without the user's go-ahead.
 
 ## Conventions
 
