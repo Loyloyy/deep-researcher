@@ -27,7 +27,11 @@ def _get_reranker(model_name: str, top_k: int):
     key = f"{model_name}:{top_k}"
     if key in _RERANKER_CACHE:
         return _RERANKER_CACHE[key]
-    from langchain.retrievers.document_compressors import CrossEncoderReranker
+    try:
+        # langchain 1.x moved these to langchain-classic
+        from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+    except ImportError:
+        from langchain.retrievers.document_compressors import CrossEncoderReranker  # langchain 0.x
     from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
     encoder = HuggingFaceCrossEncoder(model_name=model_name)
@@ -43,11 +47,17 @@ def enable_reranker(model_name: str, retrieve_top_n: int = 50, keep_top_k: int =
         return True
     try:
         from gpt_researcher.context.compression import ContextCompressor
-        from langchain.retrievers import ContextualCompressionRetriever
-        from langchain.retrievers.document_compressors import (
-            DocumentCompressorPipeline,
-            EmbeddingsFilter,
-        )
+        try:
+            # langchain 1.x: classes moved to langchain-classic
+            from langchain_classic.retrievers.document_compressors import (
+                DocumentCompressorPipeline,
+                EmbeddingsFilter,
+            )
+        except ImportError:  # langchain 0.x
+            from langchain.retrievers.document_compressors import (
+                DocumentCompressorPipeline,
+                EmbeddingsFilter,
+            )
         from langchain_community.document_transformers import EmbeddingsRedundantFilter
         from langchain_text_splitters import RecursiveCharacterTextSplitter
     except Exception as e:

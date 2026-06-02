@@ -19,7 +19,8 @@ dependencies = [
 quality = [
   "crawl4ai>=0.4",
   "sentence-transformers",
-  "langchain",                 # provides langchain.retrievers (CrossEncoderReranker etc.)
+  "langchain",
+  "langchain-classic",         # langchain 1.x: holds retrievers/document_compressors (reranker)
   "langchain-huggingface",
   "langchain-community",
 ]
@@ -34,7 +35,7 @@ ui = ["gradio>=4"]
 # Everything, for the server build
 all = [
   "crawl4ai>=0.4", "sentence-transformers",
-  "langchain", "langchain-huggingface", "langchain-community",
+  "langchain", "langchain-classic", "langchain-huggingface", "langchain-community",
   "fastapi", "uvicorn[standard]", "rank-bm25", "gradio>=4",
 ]
 

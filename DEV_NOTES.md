@@ -20,12 +20,14 @@ Newest at the bottom of each section. "⏳ pending verify" = fix committed but n
   includes `searx`.  ⏳ pending verify.
 
 ### Reranker disabled at startup
-- **Symptom:** `rerank disabled — could not import GPTR/LangChain internals: No module named 'langchain.retrievers'`.
-- **Cause:** only `langchain-core`/`langchain-community` were installed; the umbrella `langchain`
-  package (which holds `langchain.retrievers`, `CrossEncoderReranker`, etc.) was not.
-- **Fix:** added `langchain` to the `quality`/`all` extras in `pyproject.toml`. Also hardened
-  `rerank/patch.py` so any runtime error in the reranking pipeline degrades to GPTR's default retriever
-  instead of breaking the run.  ⏳ pending verify (rebuild required).
+- **Symptom:** `rerank disabled — … No module named 'langchain.retrievers'`, even with `langchain` installed.
+- **Cause:** the installed stack is **langchain 1.3.3** (the 1.x restructure). `langchain.retrievers` and
+  `…document_compressors` (`CrossEncoderReranker`, `DocumentCompressorPipeline`, `EmbeddingsFilter`) were
+  relocated to the **`langchain-classic`** package. Our patch imported the old `langchain.retrievers` paths.
+- **Fix:** `rerank/patch.py` now imports from `langchain_classic.retrievers…` with a fallback to the old
+  `langchain.retrievers…` (0.x); added `langchain-classic` to the extras. Also hardened so any runtime
+  error in the reranking pipeline degrades to GPTR's default retriever instead of breaking the run.
+  ⏳ pending verify (rebuild required).
 
 ### `MCPRetriever` import warning — benign
 - `Failed to import MCPRetriever: No module named 'langchain_mcp_adapters'` is a GPTR optional feature
