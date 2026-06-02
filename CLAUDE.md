@@ -51,7 +51,13 @@ they were mitigated in `DEV_NOTES.md`. This file is the rules + gotchas a coding
    `ai-engineer-wiki` repo. The `## Notes` sections in that wiki are user-owned.
 7. **Keep heavy deps lazy-imported** (torch, crawl4ai, gradio, fastapi, rank_bm25) so the package
    imports and offline tests run without a GPU or the full extra set.
-8. **Log every non-trivial decision in `DECISIONS.md`.**
+8. **Never put machine-specific or sensitive values in tracked files.** Server IPs, NFS/filesystem paths,
+   internal/partner model names or ids, hostnames, and any keys live ONLY in gitignored `.env` /
+   `docker/docker-compose.override.yml`. Committed files (code, `.env.example`, docs, helper scripts) use
+   **generic placeholders** (`/path/to/models`, `<served-model-id>`, `<host>:<port>`). Don't hardcode a
+   real endpoint/model into a one-off script either. This repo pushes to a GitHub remote — assume anything
+   committed is public.
+9. **Log every non-trivial decision in `DECISIONS.md`.**
 
 ## Fragile seams (these couple to GPT Researcher internals — verify after any GPTR upgrade)
 
@@ -76,7 +82,17 @@ All three are wrapped to **degrade, not crash** if internals drift; a drift show
   is the single typed config object.
 - Persisted artifacts: `artifacts/<id>/vNN.json`. Refinement bumps version under the same id via `parent_id`.
 
-## Status
+## Status (2026-06-03)
 
-Phases 1–6 implemented; offline logic verified. Live calls pending validation on the user's H200 server.
-See the `deep-researcher-project` memory and `DECISIONS.md` for current state.
+**Deployed and validated on the H200 server, fully containerized** (`docker-compose run app`):
+a local vLLM model via LiteLLM, local BGE-M3 embeddings + bge-reranker-v2-m3, full-page scraping, cross-encoder
+rerank, and artifact extraction/persistence all work end-to-end → grounded, cited reports.
+
+**Known constraint (environmental, not code):** the server has a hard egress allowlist with no proxy —
+only search engines + a few vendor domains are reachable; most content sites are TLS-reset by the
+firewall. Web-research depth is network-limited on this box.
+
+**Next:** (1) wire the vault (Phase 4) — local wiki as a no-internet source, the best fit here;
+(2) Crawl4AI/Chromium only on an open-egress box (prebuilt Playwright image); (3) egress via IT
+allowlist/proxy or an open-internet host. Full bug log + roadmap in `DEV_NOTES.md`; see also the
+`deep-researcher-project` memory and `DECISIONS.md`.

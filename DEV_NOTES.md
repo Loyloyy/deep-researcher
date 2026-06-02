@@ -48,9 +48,9 @@ Newest at the bottom of each section. "⏳ pending verify" = fix committed but n
 ## Model wiring (vLLM behind LiteLLM)
 
 ### vLLM served id has a LEADING SLASH
-- `/v1/models` returned `"/nfs/llm_models/nvidia/GLM-5-NVFP4"` (leading `/`). In `.env` the LiteLLM
-  value is therefore `hosted_vllm//nfs/llm_models/...` (**double slash**). A single slash →
-  `The model ... does not exist (404)`.
+- A vLLM served id can be an absolute path with a **leading slash** (check `/v1/models` → `data[0].id`).
+  When it starts with `/`, the LiteLLM `.env` value needs a **double slash**: `hosted_vllm//<served/id>`.
+  A single slash → `The model ... does not exist (404)`.
 
 ### Container networking
 - Inside the compose network, reach services by name — `http://litellm:4000`, `http://searxng:8080` —
@@ -81,8 +81,19 @@ Newest at the bottom of each section. "⏳ pending verify" = fix committed but n
 ### Playwright/Chromium blocked at build
 - `cdn.playwright.dev` unreachable (`ECONNRESET`) → image build aborted. **Fix:** made
   `playwright install` non-fatal (`|| echo WARN`) and defaulted `scraper: bs` (no browser).
-  Crawl4AI (better extractor) stays optional until the CDN is reachable, or use a prebuilt
-  Playwright base image that ships Chromium.
+- **Update:** even with Chromium, this server's egress is filtered (see *Restricted network egress*),
+  so the real browser scraper (Crawl4AI) only helps on an **open-egress** deployment. Revisit there via
+  a prebuilt Playwright base image (Chromium baked in, no CDN download). On this box, `scraper: bs` stays.
+
+### Restricted network egress — the real scraping limiter ⭐ current blocker for web depth
+- **Symptom:** most sites failed scraping with `Connection reset by peer`; only IBM/NVIDIA/Microsoft
+  came through. Raw `curl` from the container to `aws.amazon.com` → `curl: (35) … Connection reset by
+  peer` (reset at the TLS layer), and `env | grep -i proxy` returns nothing.
+- **Cause:** the server enforces a hard **egress allowlist** (likely SNI-based) — search engines + a few
+  vendor domains permitted, most content sites blocked, no HTTP proxy. **Not fixable in code** (a browser
+  scraper hits the same wall). SearXNG still returns results because the search engines are allowlisted.
+- **Direction:** (a) use the **vault** (local wiki) as a no-internet source; (b) IT allowlist/proxy;
+  (c) run the portable container on an open-egress box pointed at the server's vLLM.
 
 ---
 
@@ -94,3 +105,27 @@ Newest at the bottom of each section. "⏳ pending verify" = fix committed but n
   - `.env` — `DR_EMBEDDING` / `DR_RERANK_MODEL` override `config/pipeline.yaml` without editing it.
   - `docker/docker-compose.override.yml` — host mounts (e.g. the model NFS dir), auto-merged by compose.
   Tracked files stay generic, so pulls never conflict.
+
+---
+
+## Status (2026-06-03)
+
+**Working end-to-end on the H200 server**, fully containerized (`docker-compose run app`):
+a local vLLM model via LiteLLM (all 4 roles), local BGE-M3 embeddings + bge-reranker-v2-m3 (via
+`DR_EMBEDDING`/`DR_RERANK_MODEL` + the NFS mount), full-page scraping (`search_patch`), cross-encoder
+rerank (langchain-classic), and artifact extraction/persistence. Runs produce grounded, cited reports.
+
+**The one open blocker is environmental, not code:** restricted egress (above) caps web-research depth.
+
+## Next / open items
+- **Vault wiring (Phase 4)** — duplicate the wiki into `vault_data/`, add a `vault` compose service,
+  set `vault.enabled: true` + `RETRIEVER=searx,custom` (or `custom`-only on this locked-down box).
+  No internet needed → best fit here and the strongest on-prem demo story.
+- **Crawl4AI/Chromium** — only worthwhile on an open-egress deployment; use a prebuilt Playwright base
+  image there. Deferred on this server.
+- **Egress** — IT allowlist/proxy for broad web research, or run the portable container on an open box
+  pointed at the server's vLLM.
+- **Dev convenience** — mount `../src:/app/src` in `docker-compose.override.yml` so code changes take
+  effect without an image rebuild (only dependency changes then need `docker-compose build app`).
+- **Housekeeping** — re-pin the LiteLLM image to a verified `vX.Y.Z-stable`; optionally add
+  `langchain-mcp-adapters` to silence the benign `MCPRetriever` import warning.
