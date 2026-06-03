@@ -164,3 +164,63 @@ Running log of non-trivial choices and rationale. Newest phases appended over ti
 - Config load, citation validation, artifact store round-trip + versioning, cache set/get + staleness,
   and a real BM25 vault search over the 367-page wiki — all pass. The only unverified parts are the live
   model/embedding/scrape calls, which are the server's job.
+
+## Stage 2 re-architecture — migrate GPT Researcher → LangChain deepagents (2026-06-03)
+
+**Context.** The Stage-2 mandate grew from "produce a cited report" to "a custom, multi-aspect researcher
+that goes online to gather real CODE + sources and analyzes limitations, alternatives, pros/cons vs
+alternatives, and production-readiness → writes 1+ artifacts or a folder/mini-wiki." That is a
+multi-agent + filesystem job, not GPTR's single-flow cited-report job. **Decision: rebuild Stage 2 on
+`deepagents`** (LangChain's batteries-included agent harness over LangGraph), in a **NEW repo**. This
+GPTR repo is superseded for Stage 2 — kept as the validated reference and the source of reusable layers.
+Stages 2 and 3 will share the deepagents substrate.
+
+**Why deepagents fits where GPTR didn't.**
+- Specialized **subagents** in isolated context windows (the `task` tool) = the
+  code/limitations/alternatives/comparison/prod-readiness researchers, natively.
+- **Filesystem** primitive (`ls/read_file/write_file/edit_file/glob/grep` over a pluggable backend) =
+  the mechanism for "save a folder of artifacts + gathered code."
+- **Planning** (`write_todos`), **summarization**, **HITL interrupts**, LangGraph **checkpointing**.
+- Removes the three fragile GPTR monkeypatch seams (rerank / scraper-registry / source-collection) and
+  the `/gptr-drift` upkeep — our search/scrape/rerank become first-class **tools**.
+
+**Drop LiteLLM — this SUPERSEDES the "keep LiteLLM" entry above (2026-06-03).** That decision rested
+entirely on GPTR exposing only ONE global `OPENAI_BASE_URL`, which forced a router to fan out to N
+endpoints. deepagents/LangChain bind `base_url`+`api_key`+`model` **per `BaseChatModel`**, so the
+multiplexer is no longer needed. Replace the proxy with an in-process `build_chat_model(role)` factory
+reading the same `.env` triples (`STRATEGIC_/SMART_/FAST_/JUDGE_` × `_MODEL/_API_BASE/_API_KEY`) →
+`ChatOpenAI(model, base_url, api_key)` (OpenAI-compatible covers vLLM **and** frontier). Preserves
+rule #1/#8 (no model names in app code), deletes a container **and** the LiteLLM supply-chain pin burden
+(rule #5 no longer applies; supply-chain vigilance now tracks `deepagents`/`langgraph`/`langchain`).
+Reintroduce a gateway only if cross-node failover / load-balancing / shared spend governance is needed.
+
+**On-prem-first, but VALIDATE TOOL-CALLING FIRST (Milestone 0).** The harness is tool-call-heavy; the
+on-prem vLLM model must reliably drive multi-step OpenAI tool/function calling. Prove this before
+building topology; fall back to frontier-for-lead (OpenRouter / any OpenAI-compatible endpoint) if the
+on-prem model is a weak caller.
+
+**Wiki (Stage 1) integration = filesystem-native, READ-ONLY.**
+- Mount the **duplicated** wiki read-only via a **composite backend** (read-only `wiki/` + writable
+  `artifacts/<id>/`); agents browse with native `glob/grep/read_file`, entry via `index.md`. ~370 small
+  files → grep is plenty; no new retrieval infra required.
+- **Seed-builder**: selected `wiki/<Topic>.md` → research brief from body + `## Opinions` (attributed
+  priors) + `## Sources` (real YouTube URLs) + 1-hop cross-links.
+- Keep the BM25 vault + `vault/mcp_server.py` as the upgrade path (semantic ranking) and the Stage-3
+  sharing mechanism (MCP via `langchain-mcp-adapters`). Wiki stays **read-only** (never write back);
+  reuse the wiki repo's read-only `lint-scanner` subagent as the "wiki-scout" template.
+
+**Carried over unchanged (port to the new repo).** Artifact schema/store/validate/extract (the Stage
+2→3 contract); SearXNG (search), Crawl4AI (extract) and the cross-encoder reranker — now wrapped as
+**tools**, not GPTR injections; cache; eval/golden-set + judge; data-hygiene + lazy-import +
+search/extract-decoupling rules; `.env`/override machine-config discipline.
+
+**Search backend stays SearXNG** (self-hosted; search engines are allowlisted on the H200). Tavily not
+adopted (external API + cost + would need unblocking).
+
+**Egress.** Stage 2 runs on the same H200 allowlisted box, but specific domains can be appealed open —
+prioritize `github.com` / `raw.githubusercontent.com` / `api.github.com` / `codeload.github.com` for
+code gathering, plus `pypi.org` / `files.pythonhosted.org` / `huggingface.co` / `arxiv.org` and key docs
+domains. Tools must degrade gracefully (log + skip) when a domain is blocked.
+
+**Open / deferred.** New repo name (TBD); Stage 2↔3 stitch-vs-separate (deferred — Stage 2 only emits
+Stage 3's contract, doesn't build it); exact subagent roster (refine during M2); M0 on-prem model pick.

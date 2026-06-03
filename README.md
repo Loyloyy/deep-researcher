@@ -1,3 +1,5 @@
+### [The aim of this project was to get familiar with deep research pipeline. Moved to Langchain Deep Agents to allow for a more complex pipeline for a larger variety of use cases.]
+
 # deep-researcher
 
 Generic, model-agnostic **deep research pipeline**: give it a topic (+ optional brief), it plans,
